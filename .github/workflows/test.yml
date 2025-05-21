@@ -1,0 +1,68 @@
+# GitHub Actions Workflow for Discord Receipt Bot
+# This file automatically runs tests whenever we push code or make pull requests
+# It helps us make sure our bot is working correctly before we deploy changes
+
+# Name of the workflow that appears in GitHub Actions tab
+name: Discord Bot Tests
+
+# Define when this workflow should run
+on:
+  # Run whenever someone pushes code to the main branch
+  push:
+    branches: [ main ]
+  # Run whenever a pull request is made to the main branch
+  pull_request:
+    branches: [ main ]
+
+# Define the jobs that this workflow will run
+jobs:
+  # This is our test job
+  test:
+    # We're using Ubuntu as our testing environment
+    runs-on: ubuntu-latest
+    
+    # Test against multiple Python versions
+    strategy:
+      matrix:
+        # This will run all tests on Python 3.8, 3.9, and 3.10
+        python-version: [3.8, 3.9, "3.10"]
+
+    # These are the individual steps that will run one after another
+    steps:
+    # Step 1: Check out our code from the repository
+    - uses: actions/checkout@v2
+      # This action clones our code to the GitHub Actions runner
+    
+    # Step 2: Set up Python with the version from our matrix
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2  # This is a pre-made action that sets up Python
+      with:
+        python-version: ${{ matrix.python-version }}  # Use the version from our matrix
+    
+    # Step 3: Install all the packages we need
+    - name: Install dependencies
+      run: |
+        # Upgrade pip to the latest version
+        python -m pip install --upgrade pip
+        # Install testing tools (pytest for testing, flake8 for code quality)
+        pip install pytest pytest-asyncio flake8
+        # Install our project requirements
+        pip install -r requirements.txt
+    
+    # Step 4: Check our code quality with flake8
+    - name: Lint with flake8
+      run: |
+        # First check: Stop if there are syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Second check: Show all other style issues as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    # Step 5: Run our actual tests
+    - name: Run tests
+      run: |
+        pytest  # This runs all files that start with "test_"
+      # These environment variables are stored securely in GitHub Secrets
+      env:
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}         # Your Discord bot token
+        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}    # Your email address
+        SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}  # Your email password

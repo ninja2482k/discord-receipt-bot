@@ -146,6 +146,50 @@ More commands (fun tools, integrations, and automation) are in development.
 
 ---
 
+## 🧪 Testing
+
+This project uses GitHub Actions for continuous integration testing. The following tests are run automatically on each push and pull request:
+
+- ✅ Unit tests with pytest
+- 🔍 Code quality checks with flake8
+- 📧 Email validation tests
+- ⚙️ Configuration loading tests
+
+### Running Tests Locally
+
+1. Install test dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the tests:
+```bash
+pytest
+```
+
+### GitHub Actions Workflow
+
+The CI pipeline will:
+1. Run tests on Python 3.8, 3.9, and 3.10
+2. Check code quality with flake8
+3. Validate core functionality
+
+### Setting up GitHub Secrets
+
+For the GitHub Actions workflow to work, you need to set up the following secrets in your repository:
+
+1. `BOT_TOKEN` - Your Discord bot token
+2. `SENDER_EMAIL` - Email address for sending confirmations
+3. `SENDER_PASSWORD` - Email app password
+
+To add these secrets:
+1. Go to your repository settings
+2. Click on "Secrets and variables" → "Actions"
+3. Click "New repository secret"
+4. Add each secret with its corresponding value
+
+---
+
 ## 🤝 Contributing
 
 We’d love your help! Even if you’re new to GitHub, contributing is easy:
