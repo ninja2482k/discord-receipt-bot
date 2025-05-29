@@ -185,6 +185,11 @@ async def on_ready():
     print("🤖 Bot is online and ready!")
     await bot.tree.sync()
 
+@bot.command()
+async def ping(ctx):
+    """Responds with Pong! 🏓"""
+    await ctx.send("Pong! 🏓")
+
 @bot.tree.command(name="run_diagnostics", description="Check bot's status.")
 async def run_diagnostics_command(interaction: discord.Interaction):
     uptime_seconds = time.time() - START_TIME
