@@ -98,17 +98,39 @@ To send confirmation emails, you need a Gmail "App Password":
 
 ### Step 4: Configure Bot Settings
 
-Open your `config.json` file and paste your credentials like so:
+This bot uses a combination of a `.env` file for sensitive credentials and `config.json` for other, non-sensitive settings.
+
+**Sensitive Credentials (`.env` file):**
+
+Create a `.env` file in the root directory of the project. This file will store your Discord Bot Token, Sender Email, and Email Password. The application uses the `python-dotenv` library to load these variables automatically.
+
+Add the following lines to your `.env` file, replacing the placeholder values with your actual credentials:
+
+```env
+# .env (example)
+DISCORD_BOT_TOKEN=your_actual_bot_token
+SENDER_EMAIL=your_sender_email@example.com
+SENDER_PASSWORD=your_email_password
+```
+
+**Important:** Add `.env` to your `.gitignore` file to prevent committing your secrets to version control. If you don't have a `.gitignore` file, create one in the root directory and add `.env` to it.
+
+**Non-Sensitive Settings (`config.json`):**
+
+The `config.json` file is used for non-sensitive configurations, such as the SMTP server and port. Default values are provided for Gmail.
 
 ```json
 {
-  "email": "youremail@gmail.com",
-  "email_password": "yourapppassword",
-  "bot_token": "your_discord_bot_token"
+  "email": "",
+  "email_password": "",
+  "bot_token": "",
+  "smtp_server": "smtp.gmail.com",
+  "smtp_port": 587
 }
 ```
+The `email`, `email_password`, and `bot_token` fields in `config.json` are placeholders and are overridden by the values in your `.env` file.
 
-Save and close.
+Save both files after making your changes.
 
 ---
 
@@ -130,8 +152,24 @@ Make sure your bot is in the server and has correct permissions.
 |----------------|----------------------------------------|
 | `/order`       | Starts a simple order form process and sends confirmation |
 | `/diagnostics` | Checks if the bot is active and functioning properly |
+| `/ping`        | Responds with Pong! and the bot's latency.         |
 
 More commands (fun tools, integrations, and automation) are in development.
+
+---
+
+## ✨ Recent Improvements
+
+This bot has undergone several enhancements to improve security, reliability, and maintainability:
+
+- **Enhanced Security**: Sensitive credentials (Bot Token, Sender Email, Sender Password) have been moved from `config.json` to environment variables managed via a `.env` file.
+- **Improved Concurrency**: Order form data handling has been refactored to support multiple concurrent users without data conflicts.
+- **Detailed Error Logging**: Email sending functionality now includes more specific error catching and logging for `aiosmtplib` exceptions, aiding in troubleshooting.
+- **Code Refactoring**:
+    - UI `TextInput` components are now created using a dedicated helper function, making the modal definitions cleaner.
+    - Email sending has been transitioned to `aiosmtplib`, enabling asynchronous operations and improving bot responsiveness.
+- **Standardized Commands**: Bot commands are being standardized to use Discord's slash command interface (e.g., `/ping` now includes latency).
+- **Configurable SMTP**: SMTP server and port are now configurable via `config.json`, providing flexibility for different email providers.
 
 ---
 
@@ -141,7 +179,7 @@ More commands (fun tools, integrations, and automation) are in development.
 - **discord.py** — Discord bot framework for Python
 - **dotenv** — Load secrets from `.env` files
 - **asyncio** — For handling async tasks and commands
-- **smtplib** — For sending emails via Gmail
+- **aiosmtplib** — For asynchronous SMTP communication (sending emails)
 - **email.message** — For formatting the emails sent to users
 
 ---
