@@ -1,12 +1,17 @@
 import discord
 from discord.ext import commands
-import smtplib
+import aiosmtplib
+from aiosmtplib.errors import SMTPAuthenticationError, SMTPRecipientRefused, SMTPSenderRefused, SMTPDataError, SMTPServerDisconnected, SMTPHeloError, SMTPException, SMTPRecipientsRefused
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import json
 import re
 import time
 from typing import Dict
+import os
+import dotenv
+
+dotenv.load_dotenv()
 
 # --- Configuration Loading ---
 def load_config(filename="config.json"):
@@ -23,9 +28,9 @@ config = load_config()
 email_template = load_email_template()
 
 # --- Bot Configuration ---
-SENDER_EMAIL = config["email"]
-SENDER_PASSWORD = config["email_password"]
-BOT_TOKEN = config["bot_token"]
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
+BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -35,7 +40,7 @@ START_TIME = time.time()  # Bot uptime tracking
 bot.temp_order_data: Dict = {}
 
 # --- Email Functionality ---
-def send_email(recipient_email, email_data):
+async def send_email(recipient_email, email_data): # Changed to async def
     """Sends an email with order details."""
     message = MIMEMultipart()
     message['From'] = SENDER_EMAIL
@@ -49,18 +54,47 @@ def send_email(recipient_email, email_data):
     message.attach(MIMEText(html_body, 'html'))
 
     try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, recipient_email, message.as_string())
+        smtp_server_address = config.get("smtp_server", "smtp.gmail.com")
+        smtp_port_number = config.get("smtp_port", 587)
+        async with aiosmtplib.SMTP(hostname=smtp_server_address, port=smtp_port_number) as server:
+            await server.starttls()
+            await server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            await server.sendmail(SENDER_EMAIL, recipient_email, message.as_string())
         print(f"Email sent to {recipient_email}")
+    except SMTPAuthenticationError as e:
+        print(f"SMTP Authentication Error for {recipient_email}: {e}")
+    except SMTPRecipientsRefused as e: # Handles multiple recipients refused
+        print(f"All recipients refused for {recipient_email}: {e}")
+    except SMTPRecipientRefused as e: # Handles single recipient refused
+        print(f"Recipient refused for {recipient_email}: {e}")
+    except SMTPSenderRefused as e:
+        print(f"Sender refused for {recipient_email}: {e}")
+    except SMTPDataError as e:
+        print(f"SMTP Data Error for {recipient_email}: {e}")
+    except SMTPServerDisconnected as e:
+        print(f"SMTP Server disconnected for {recipient_email}: {e}")
+    except SMTPHeloError as e:
+        print(f"SMTP Helo Error for {recipient_email}: {e}")
+    except SMTPException as e: # General aiosmtplib exception
+        print(f"SMTP General Error for {recipient_email}: {e}")
     except Exception as error:
-        print(f"Error sending email to {recipient_email}: {error}")
+        print(f"Generic error sending email to {recipient_email}: {error}")
 
 def is_valid_email(email):
     """Validates an email address using a regular expression."""
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(email_regex, email)
+
+# --- Helper function for creating TextInput ---
+def create_text_input(label: str, style: discord.TextStyle, required: bool, placeholder: str = None, default: str = None, max_length: int = None):
+    return discord.ui.TextInput(
+        label=label,
+        style=style,
+        required=required,
+        placeholder=placeholder,
+        default=default,
+        max_length=max_length
+    )
 
 # --- Discord UI Modals ---
 class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
@@ -78,14 +112,16 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
         }
 
         for field_key, (label, style, required) in input_fields.items():
-            input_component = discord.ui.TextInput(label=label, style=style, required=required)
+            # Use the helper function here
+            input_component = create_text_input(label=label, style=style, required=required)
             self.form_fields[field_key] = input_component
             self.add_item(input_component)
 
     async def on_submit(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
         user_data = {key: field.value for key, field in self.form_fields.items()}
         # Store the data in a temporary dictionary or database
-        interaction.client.temp_order_data = {
+        interaction.client.temp_order_data[user_id] = {
             'email': self.user_email,
             'step1_data': user_data
         }
@@ -95,7 +131,8 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
         button = discord.ui.Button(label="Continue to Step 2", style=discord.ButtonStyle.primary, custom_id="continue_order")
         
         async def button_callback(button_interaction):
-            await button_interaction.response.send_modal(OrderFormStep2(self.user_email, user_data))
+            # Pass user_id to OrderFormStep2
+            await button_interaction.response.send_modal(OrderFormStep2(self.user_email, user_id))
             
         button.callback = button_callback
         view.add_item(button)
@@ -103,10 +140,12 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
         await interaction.response.send_message("Step 1 completed! Click below to continue:", view=view, ephemeral=True)
 
 class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
-    def __init__(self, user_email, step1_data):
+    def __init__(self, user_email, user_id): # Accept user_id
         super().__init__()
         self.user_email = user_email
-        self.step1_data = step1_data
+        self.user_id = user_id # Store user_id
+        # Retrieve step1_data using user_id
+        self.step1_data = bot.temp_order_data[self.user_id]['step1_data']
         self.form_fields = {}
 
         input_fields = {
@@ -118,23 +157,23 @@ class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
         }
 
         for field_key, (label, style, required) in input_fields.items():
-            input_component = discord.ui.TextInput(label=label, style=style, required=required)
+            # Use the helper function here
+            input_component = create_text_input(label=label, style=style, required=required)
             self.form_fields[field_key] = input_component
             self.add_item(input_component)
 
     async def on_submit(self, interaction: discord.Interaction):
         step2_data = {key: field.value for key, field in self.form_fields.items()}
-        temp_data = {**self.step1_data, **step2_data}
-        
-        # Store updated data
-        interaction.client.temp_order_data.update({'step2_data': step2_data})
+        # Store updated data using user_id
+        interaction.client.temp_order_data[self.user_id]['step2_data'] = step2_data
         
         # Create continue button for step 3
         view = discord.ui.View()
         button = discord.ui.Button(label="Continue to Final Step", style=discord.ButtonStyle.primary, custom_id="continue_final")
         
         async def button_callback(button_interaction):
-            await button_interaction.response.send_modal(OrderFormStep3(self.user_email, temp_data))
+            # Pass user_id to OrderFormStep3
+            await button_interaction.response.send_modal(OrderFormStep3(self.user_email, self.user_id))
             
         button.callback = button_callback
         view.add_item(button)
@@ -142,10 +181,14 @@ class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
         await interaction.response.send_message("Step 2 completed! Click below to continue:", view=view, ephemeral=True)
 
 class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
-    def __init__(self, user_email, previous_data):
+    def __init__(self, user_email, user_id): # Accept user_id
         super().__init__()
         self.user_email = user_email
-        self.previous_data = previous_data
+        self.user_id = user_id # Store user_id
+        # Retrieve data using user_id
+        user_specific_data = bot.temp_order_data[self.user_id]
+        self.step1_data = user_specific_data['step1_data']
+        self.step2_data = user_specific_data.get('step2_data', {}) # Use .get for safety
         self.form_fields = {}
 
         input_fields = {
@@ -154,13 +197,15 @@ class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
         }
 
         for field_key, (label, style, required) in input_fields.items():
-            input_component = discord.ui.TextInput(label=label, style=style, required=required)
+            # Use the helper function here
+            input_component = create_text_input(label=label, style=style, required=required)
             self.form_fields[field_key] = input_component
             self.add_item(input_component)
 
     async def on_submit(self, interaction: discord.Interaction):
         final_step_data = {key: field.value for key, field in self.form_fields.items()}
-        merged_data = {**self.previous_data, **final_step_data}
+        # Merge all data parts
+        merged_data = {**self.step1_data, **self.step2_data, **final_step_data}
 
         # Send final confirmation message
         await interaction.response.send_message(
@@ -177,7 +222,14 @@ class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
             ),
             ephemeral=False,
         )
-        send_email(self.user_email, merged_data)
+        await send_email(self.user_email, merged_data) # Added await here
+
+        # Clean up user's data
+        try:
+            del interaction.client.temp_order_data[self.user_id]
+            print(f"Successfully deleted data for user {self.user_id}")
+        except KeyError:
+            print(f"No data found for user {self.user_id} to delete.")
 
 # --- Discord Bot Events & Commands ---
 @bot.event
@@ -185,10 +237,16 @@ async def on_ready():
     print("🤖 Bot is online and ready!")
     await bot.tree.sync()
 
-@bot.command()
-async def ping(ctx):
-    """Responds with Pong! 🏓"""
-    await ctx.send("Pong! 🏓")
+# @bot.command()
+# async def ping(ctx):
+#     """Responds with Pong! 🏓"""
+#     await ctx.send("Pong! 🏓")
+
+@bot.tree.command(name="ping", description="Responds with Pong! and bot latency.")
+async def ping_slash(interaction: discord.Interaction):
+    """Responds with Pong! and the bot's latency."""
+    latency_ms = round(bot.latency * 1000)
+    await interaction.response.send_message(f"Pong! Latency: {latency_ms}ms")
 
 @bot.tree.command(name="run_diagnostics", description="Check bot's status.")
 async def run_diagnostics_command(interaction: discord.Interaction):
