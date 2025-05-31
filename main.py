@@ -20,7 +20,7 @@ import dotenv # For loading environment variables from .env file
 
 # Local module imports
 from config_loader import load_config, load_email_template
-from bot_commands import setup_commands
+from bot_commands import setup_commands, BotConfig
 # Note: `email_utils` and `discord_ui` are internally used by `bot_commands.py`
 # and `discord_ui.py` respectively. They are not directly called from main.py after setup.
 
@@ -78,13 +78,16 @@ bot.temp_order_data: Dict = {}
 # This call passes the bot instance and necessary global configurations (loaded earlier)
 # to the command setup function, which then defines and registers the commands with the bot.
 print("Initializing and setting up slash commands...")
+bot_config_instance = BotConfig(
+    start_time=START_TIME,
+    sender_email=SENDER_EMAIL,
+    sender_password=SENDER_PASSWORD,
+    email_template=email_template,
+    app_config=config  # Use the existing 'config' as 'app_config'
+)
 setup_commands(
     bot,
-    START_TIME,
-    SENDER_EMAIL,
-    SENDER_PASSWORD,
-    email_template,
-    config
+    bot_config_instance
 )
 
 # --- Discord Bot Events ---

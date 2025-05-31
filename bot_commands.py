@@ -44,7 +44,7 @@ def setup_commands(bot: commands.Bot, config: BotConfig):
         Provides diagnostic information about the bot like uptime, server count, user count, and latency.
         """
         # Calculate uptime
-        uptime_seconds = time.time() - START_TIME # 'START_TIME' is from the setup_commands scope
+        uptime_seconds = time.time() - config.start_time # 'config' is the BotConfig instance from setup_commands
         days = int(uptime_seconds // (24 * 3600))
         hours = int((uptime_seconds % (24 * 3600)) // 3600)
         minutes = int((uptime_seconds % 3600) // 60)
@@ -59,7 +59,6 @@ def setup_commands(bot: commands.Bot, config: BotConfig):
                 user_count += guild.member_count
             except AttributeError: # member_count might not be available in some partial guild objects or due to intent issues
                 print(f"Warning: Could not retrieve member_count for guild {guild.id}. Ensure GUILD_MEMBERS intent is enabled if this is unexpected.")
-
 
         # Structure of the diagnostic message:
         # - Bot Ping (Latency)
