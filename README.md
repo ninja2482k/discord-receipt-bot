@@ -200,6 +200,7 @@ This bot has undergone significant enhancements to improve security, reliability
 -   **Concurrency Support**: Order form data handling is designed to manage data for multiple users concurrently using a dictionary within the bot instance.
 -   **Detailed Error Handling**: Email sending includes specific exception handling for `aiosmtplib` errors. Bot startup includes checks for critical configurations like `BOT_TOKEN`.
 -   **Configurable Settings**: SMTP server/port are configurable via `config.json`. The email content is templated in `email_template.json`.
+-   **SMTP TLS Error Fix**: Resolved an "SMTP General Error: Connection already using TLS" by removing a redundant `STARTTLS` command in `email_utils.py`. The `aiosmtplib` library now correctly handles the TLS negotiation automatically when using port 587.
 
 ---
 
