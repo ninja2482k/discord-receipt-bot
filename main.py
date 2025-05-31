@@ -98,7 +98,7 @@ async def on_ready():
     """
     print("-" * 50)
     print(f"🎉 Bot logged in as {bot.user.name} (ID: {bot.user.id})")
-    print(f"🔑 Successfully connected to Discord services.")
+    print("🔑 Successfully connected to Discord services.")
     print(f"⏱️ Current Bot Latency: {round(bot.latency * 1000)}ms")
     print(f"🌐 Bot is currently active in {len(bot.guilds)} server(s):")
     if bot.guilds:
