@@ -121,14 +121,11 @@ The `config.json` file is used for non-sensitive configurations, such as the SMT
 
 ```json
 {
-  "email": "",
-  "email_password": "",
-  "bot_token": "",
   "smtp_server": "smtp.gmail.com",
   "smtp_port": 587
 }
 ```
-The `email`, `email_password`, and `bot_token` fields in `config.json` are placeholders and are overridden by the values in your `.env` file.
+The `config.json` file is for non-sensitive settings like the SMTP server and port. Sensitive credentials such as `email`, `email_password`, and `bot_token` are managed securely through the `.env` file and are not part of `config.json`.
 
 Save both files after making your changes.
 

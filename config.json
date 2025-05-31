@@ -1,7 +1,4 @@
 {
-  "email": "",
-  "email_password": "",
-  "bot_token": "",
   "smtp_server": "smtp.gmail.com",
   "smtp_port": 587
 }
