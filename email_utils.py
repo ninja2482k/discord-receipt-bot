@@ -73,9 +73,6 @@ async def send_email(recipient_email: str, email_data: dict, sender_email_addres
 
         # Establish connection with the SMTP server
         async with aiosmtplib.SMTP(hostname=smtp_server_address, port=smtp_port_number) as server:
-            # Start TLS if not already active and the port is not the standard SSL port (465)
-            if not server.tls_active and smtp_port_number != 465:
-                await server.starttls()
             await server.login(sender_email_address, sender_password_value) # Authenticate
             # Send the email
             await server.sendmail(sender_email_address, recipient_email, message.as_string())
