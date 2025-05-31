@@ -7,26 +7,26 @@ from discord_ui import OrderFormStep1
 # This file will contain the setup_commands function which defines and registers
 # all slash commands for the bot. This helps in keeping main.py cleaner.
 
-def setup_commands(
-    bot: commands.Bot,
-    START_TIME: float,
-    SENDER_EMAIL_CFG: str,
-    SENDER_PASSWORD_CFG: str,
-    EMAIL_TEMPLATE_CFG: dict,
-    APP_CONFIG_CFG: dict
-):
+from dataclasses import dataclass
+
+@dataclass
+class BotConfig:
+    """Configuration for bot setup."""
+    start_time: float
+    sender_email: str
+    sender_password: str
+    email_template: dict
+    app_config: dict
+
+def setup_commands(bot: commands.Bot, config: BotConfig):
     """
     Sets up and registers all slash commands for the bot.
 
     Args:
         bot (commands.Bot): The bot instance.
-        START_TIME (float): The timestamp when the bot started, for uptime calculation.
-        SENDER_EMAIL_CFG (str): Sender's email address for email functionalities.
-        SENDER_PASSWORD_CFG (str): Sender's email password.
-        EMAIL_TEMPLATE_CFG (dict): Configuration for email templates.
-        APP_CONFIG_CFG (dict): General application configuration, including SMTP settings.
+        config (BotConfig): Bot configuration including timing and email settings.
     """
-
+    # ... rest of implementation ...
     @bot.tree.command(name="ping", description="Responds with Pong! and bot latency.")
     async def ping_slash(interaction: discord.Interaction):
         """
