@@ -43,12 +43,11 @@ SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 # Critical check: Ensure the bot token is available. Exit if not.
+import sys
 if not BOT_TOKEN:
     print("CRITICAL ERROR: DISCORD_BOT_TOKEN not found in environment variables.")
     print("Please ensure a .env file is present in the root directory with DISCORD_BOT_TOKEN set,")
     print("or that the environment variable is set in the deployment environment.")
-import sys
-
     sys.exit(1) # Stop execution if token is missing
 
 # --- Bot Initialization ---
