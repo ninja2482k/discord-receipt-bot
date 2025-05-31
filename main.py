@@ -47,7 +47,9 @@ if not BOT_TOKEN:
     print("CRITICAL ERROR: DISCORD_BOT_TOKEN not found in environment variables.")
     print("Please ensure a .env file is present in the root directory with DISCORD_BOT_TOKEN set,")
     print("or that the environment variable is set in the deployment environment.")
-    exit() # Stop execution if token is missing
+import sys
+
+    sys.exit(1) # Stop execution if token is missing
 
 # --- Bot Initialization ---
 # Define Discord intents required by the bot.
