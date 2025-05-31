@@ -96,12 +96,12 @@ def setup_commands(bot: commands.Bot, config: BotConfig):
         # are passed to the modal. These will be propagated through the modal chain as needed.
         modal = OrderFormStep1(
             user_email=email,
-            bot_instance=bot, # 'bot' is from the setup_commands scope
-            send_email_func=email_util_send_email, # actual send_email function from email_utils
-            cfg_sender_email=SENDER_EMAIL_CFG,
-            cfg_sender_password=SENDER_PASSWORD_CFG,
-            cfg_email_template=EMAIL_TEMPLATE_CFG,
-            cfg_app_config=APP_CONFIG_CFG
+            bot_instance=bot,  # 'bot' is from the setup_commands scope
+            send_email_func=email_util_send_email,  # actual send_email function from email_utils
+            cfg_sender_email=config.sender_email,
+            cfg_sender_password=config.sender_password,
+            cfg_email_template=config.email_template,
+            cfg_app_config=config.app_config
         )
         await interaction.response.send_modal(modal)
         print(f"Order_form command initiated by {interaction.user.name} with email {email}")
