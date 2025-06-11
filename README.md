@@ -1,6 +1,6 @@
 # Discord Order & Diagnostic Bot
 
-A simple and extendable Discord bot that handles **order forms**, runs **diagnostic checks**, and **sends confirmation emails to users**. With fun features and utility tools on the way, this bot is perfect for community servers and service-based Discords.
+A simple and extendable Discord bot that handles **order forms**, runs **diagnostic checks**, and **sends confirmation emails to users**. With fun features and utility tools on the way, this bot is perfect for community servers and service-based Discord communities.
 
 This bot is designed for Discord servers that need a basic but reliable tool to:
 
@@ -16,7 +16,7 @@ Perfect for growing communities, service-based servers (e.g., digital services, 
 
 - 📦 `/order_form` — Starts a multi-step order form via slash command and sends a confirmation email upon completion.
 - 🩺 `/run_diagnostics` — Performs bot diagnostics including uptime, server count, user count, and latency.
-- 핑 `/ping` — Responds with Pong! and the bot's current latency.
+- 🏓 `/ping` — Responds with Pong! and the bot's current latency.
 - ✉️ Auto-email confirmations using Gmail SMTP (configurable for other providers).
 
 > 📸 **Reminder**: Add screenshots or a short video of you using these commands in your README or repo — it helps others understand what the bot does in action!
@@ -25,17 +25,17 @@ Perfect for growing communities, service-based servers (e.g., digital services, 
 
 ## 🧱 Project Structure
 
-The bot's codebase is organized into several modules for better maintainability and clarity:
+Here's how the bot's codebase is organized to keep things clean and easy to understand:
 
--   **`main.py`**: The main entry point for the Discord bot. Initializes the bot, loads configurations, sets up commands (via `bot_commands.py`), and connects to Discord.
--   **`config_loader.py`**: Handles loading of configurations from `config.json` (for general settings like SMTP) and `email_template.json` (for email content).
--   **`email_utils.py`**: Contains functions for sending emails (including order confirmations using `aiosmtplib`) and validating email addresses.
--   **`discord_ui.py`**: Defines the multi-step Discord modals (`OrderFormStep1`, `OrderFormStep2`, `OrderFormStep3`) and UI helper functions used in the order submission process.
--   **`bot_commands.py`**: Contains the definitions and logic for all slash commands available to the bot (e.g., `/ping`, `/order_form`, `/run_diagnostics`).
--   **`.env.example`**: An example file showing the required environment variables. You should copy this to `.env` and fill in your credentials.
--   **`requirements.txt`**: Lists all Python package dependencies.
--   **`config.json`**: Configuration file for non-sensitive settings, like SMTP server and port.
--   **`email_template.json`**: JSON file defining the HTML body and other parts of the confirmation email.
+-   **[`bot/main.py`](bot/main.py)**: The main entry point for the Discord bot. Initializes the bot, loads configurations, sets up commands (via `bot_commands.py`), and connects to Discord.
+-   **[`bot/config_loader.py`](bot/config_loader.py)**: Handles loading of configurations from [`config/config.json`](config/config.json) (for general settings like SMTP) and [`config/email_template.json`](config/email_template.json) (for email content).
+-   **[`bot/email_utils.py`](bot/email_utils.py)**: Contains functions for sending emails (including order confirmations using `aiosmtplib`) and validating email addresses.
+-   **[`bot/discord_ui.py`](bot/discord_ui.py)**: Defines the multi-step Discord modals (`OrderFormStep1`, `OrderFormStep2`, `OrderFormStep3`) and UI helper functions used in the order submission process.
+-   **[`bot/bot_commands.py`](bot/bot_commands.py)**: Contains the definitions and logic for all slash commands available to the bot (e.g., `/ping`, `/order_form`, `/run_diagnostics`).
+-   **[`.env.example`](.env.example)**: An example file showing the required environment variables. You should copy this to `.env` and fill in your credentials.
+-   **[`requirements.txt`](requirements.txt)**: Lists all Python package dependencies.
+-   **[`config/config.json`](config/config.json)**: Configuration file for non-sensitive settings, like SMTP server and port.
+-   **[`config/email_template.json`](config/email_template.json)**: JSON file defining the HTML body and other parts of the confirmation email.
 
 ---
 
@@ -47,8 +47,8 @@ To run the bot locally or on your server:
 
 #### Option A: Clone with Git
 ```bash
-git clone https://github.com/yourusername/your-repo-name.git # Replace with your repo URL
-cd your-repo-name
+git clone https://github.com/ninja2482k/discord-receipt-bot.git
+cd discord-receipt-bot
 ```
 
 #### Option B: Manual Download
@@ -162,14 +162,14 @@ The `email_template.json` file defines the content of the order confirmation ema
 
 ## ▶️ Run the Bot
 
-Once all configurations are set up:
+Once all configurations are set up (see [Configuration Guide](#-configuration-guide) above):
 
 1.  Open your terminal or command prompt.
 2.  Navigate to the root directory of the project.
 3.  Run the bot using Python:
 
 ```bash
-python main.py
+python bot/main.py
 ```
 
 If everything is configured correctly, you should see messages in your console indicating the bot has logged in and is ready. Ensure your bot is invited to a server and has the necessary permissions.
@@ -223,8 +223,8 @@ We’d love your help! Even if you’re new to GitHub, contributing is easy:
 1.  **Fork** this repo (top right corner of the GitHub page)
 2.  **Clone** your fork:
     ```bash
-    git clone https://github.com/yourusername/your-fork-name.git # Replace with your fork's URL
-    cd your-fork-name
+    git clone https://github.com/yourusername/discord-receipt-bot.git # Replace yourusername with your GitHub username
+    cd discord-receipt-bot
     ```
 3.  **Create a branch** for your changes:
     ```bash
@@ -254,7 +254,7 @@ Even small improvements or documentation updates are welcome!
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE). (Ensure you have a LICENSE file if you mention it).
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
@@ -262,3 +262,11 @@ This project is licensed under the [MIT License](LICENSE). (Ensure you have a LI
 
 Created by [calvin fernandes](https://github.com/ninja2482k)
 Feel free to reach out via GitHub issues or discussions on the repository!
+
+---
+
+## 📚 Additional Documentation
+
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security Policy](SECURITY.md)
