@@ -1,5 +1,6 @@
 import discord
-from .bot_commands import BotConfig # Added import for BotConfig
+-from .bot_commands import BotConfig # Added import for BotConfig
++from bot.bot_commands import BotConfig # Added import for BotConfig
 
 # --- Helper function for creating TextInput ---
 def create_text_input(
