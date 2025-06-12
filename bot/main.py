@@ -1,148 +1,308 @@
-"""
-Main entry point for the Discord Bot.
+# bot/main.py - Enhanced Discord Receipt Bot with Performance Optimizations
 
-This script initializes the bot, loads configurations, sets up necessary intents,
-registers slash commands, defines event handlers (like on_ready), and runs the bot.
-It leverages other modules for specific functionalities:
-- `config_loader.py`: For loading JSON configurations.
-- `bot_commands.py`: For defining and registering slash commands.
-"""
-
-# Standard library imports
+import asyncio
+import logging
 import os
-import time
-from typing import Dict # For bot.temp_order_data type hint
-
-# Third-party imports
-import discord
-from discord.ext import commands
-import dotenv # For loading environment variables from .env file
-
-# Local module imports
-from config_loader import load_config, load_email_template
-from bot_commands import setup_commands, BotConfig
-# Note: `email_utils` and `discord_ui` are internally used by `bot_commands.py`
-# and `discord_ui.py` respectively. They are not directly called from main.py after setup.
-
-# --- Environment Variable Loading ---
-# Load environment variables from a .env file for configuration.
-# This should be one of the first things to do to ensure variables are available.
-dotenv.load_dotenv()
-
-# --- Configuration Loading ---
-# Load application-specific configurations from JSON files.
-# `config.json` typically holds general settings (e.g., SMTP server details).
-# `email_template.json` holds the structure for emails sent by the bot.
-config = load_config()
-email_template = load_email_template()
-
-# --- Bot Configuration & Credentials ---
-# Load essential credentials and tokens from environment variables.
-SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
-BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-
-# Critical check: Ensure the bot token is available. Exit if not.
 import sys
-if not BOT_TOKEN:
-    print("CRITICAL ERROR: DISCORD_BOT_TOKEN not found in environment variables.")
-    print("Please ensure a .env file is present in the root directory with DISCORD_BOT_TOKEN set,")
-    print("or that the environment variable is set in the deployment environment.")
-    sys.exit(1) # Stop execution if token is missing
+from typing import Optional
+import discord
+from discord.ext import commands, tasks
+from dotenv import load_dotenv
+import aiohttp
+import time
+from contextlib import asynccontextmanager
 
-# --- Bot Initialization ---
-# Define Discord intents required by the bot.
-# `message_content` is an example; adjust intents based on your bot's specific needs
-# to follow Discord's privileged intents policy.
-intents = discord.Intents.default()
-intents.message_content = True # Enabled if the bot needs to read message content (e.g. for prefix commands, though primarily using slash)
-# intents.members = True      # Enable if the bot needs to track member joins/updates or access member lists exhaustively.
-# intents.presences = True   # Enable if the bot needs to track user presence (status, activity).
+from config_loader import ConfigLoader
+from bot_commands import setup_commands
+from email_utils import EmailManager
+from database_manager import DatabaseManager
 
-# Create the bot instance with a command prefix (legacy, as primarily using slash commands)
-# and specified intents. The command_prefix is still good practice to set.
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-# --- Bot State Variables ---
-# START_TIME records when the bot script was initiated, used for uptime calculation in diagnostics.
-START_TIME = time.time()
-
-# bot.temp_order_data stores temporary data for multi-step interactions, such as modal forms.
-# It's an in-memory dictionary. For persistent storage or larger scale applications,
-# consider using a database (e.g., SQLite, PostgreSQL, Redis).
-# Keyed by user_id, it holds data across different steps of a user's interaction with a form.
-bot.temp_order_data: Dict = {}
-
-# --- Setup Bot Commands ---
-# Register all slash commands. These are defined in `bot_commands.py`.
-# This call passes the bot instance and necessary global configurations (loaded earlier)
-# to the command setup function, which then defines and registers the commands with the bot.
-print("Initializing and setting up slash commands...")
-bot_config_instance = BotConfig(
-    start_time=START_TIME,
-    sender_email=SENDER_EMAIL,
-    sender_password=SENDER_PASSWORD,
-    email_template=email_template,
-    app_config=config  # Use the existing 'config' as 'app_config'
+# Configure logging with better formatting
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('bot.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
-setup_commands(
-    bot,
-    bot_config_instance
-)
+logger = logging.getLogger(__name__)
 
-# --- Discord Bot Events ---
-@bot.event
-async def on_ready():
-    """
-    Event handler called when the bot has successfully connected to Discord,
-    finished preparations, and is ready to operate.
-    This event may be called multiple times if the bot disconnects and reconnects.
-    """
-    print("-" * 50)
-    print(f"🎉 Bot logged in as {bot.user.name} (ID: {bot.user.id})")
-    print("🔑 Successfully connected to Discord services.")
-    print(f"⏱️ Current Bot Latency: {round(bot.latency * 1000)}ms")
-    print(f"🌐 Bot is currently active in {len(bot.guilds)} server(s):")
-    if bot.guilds:
-        for guild_idx, guild in enumerate(bot.guilds):
-            print(f"  {guild_idx+1}. {guild.name} (ID: {guild.id}) - Members: {guild.member_count if guild.member_count else 'N/A (check intents)'}")
-    else:
-        print("  Bot is not in any servers.")
+class EnhancedReceiptBot(commands.Bot):
+    """Enhanced Discord Receipt Bot with improved performance and features."""
+    
+    def __init__(self):
+        # Enhanced intents for better functionality
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.members = True  # For member count diagnostics
+        
+        super().__init__(
+            command_prefix='!',  # Fallback prefix, primarily using slash commands
+            intents=intents,
+            help_command=None,  # Custom help command
+            case_insensitive=True,
+            strip_after_prefix=True
+        )
+        
+        # Bot state management
+        self.start_time = time.time()
+        self.order_data = {}  # Thread-safe order data storage
+        self.rate_limit_buckets = {}  # Rate limiting
+        self.session: Optional[aiohttp.ClientSession] = None
+        
+        # Component managers
+        self.config_loader = ConfigLoader()
+        self.email_manager = None
+        self.db_manager = None
+        
+        # Performance metrics
+        self.command_usage = {}
+        self.error_count = 0
+        
+    async def setup_hook(self):
+        """Async setup called when bot starts."""
+        try:
+            # Load configuration
+            await self.config_loader.load_config()
+            logger.info("Configuration loaded successfully")
+            
+            # Initialize managers
+            self.email_manager = EmailManager(self.config_loader)
+            self.db_manager = DatabaseManager()
+            await self.db_manager.initialize()
+            
+            # Create aiohttp session for external requests
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+                connector=aiohttp.TCPConnector(limit=100, limit_per_host=10)
+            )
+            
+            # Setup commands
+            await setup_commands(self)
+            
+            # Start background tasks
+            self.cleanup_task.start()
+            self.metrics_task.start()
+            
+            # Sync slash commands
+            await self.tree.sync()
+            logger.info("Slash commands synced successfully")
+            
+        except Exception as e:
+            logger.error(f"Error in setup_hook: {e}")
+            raise
+    
+    async def on_ready(self):
+        """Called when the bot is ready."""
+        logger.info(f'{self.user} has connected to Discord!')
+        logger.info(f'Bot is in {len(self.guilds)} guilds')
+        logger.info(f'Serving {sum(guild.member_count for guild in self.guilds)} users')
+        
+        # Set bot status
+        await self.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name=f"{len(self.guilds)} servers | /help"
+            )
+        )
+    
+    async def on_command_error(self, ctx, error):
+        """Enhanced error handling."""
+        self.error_count += 1
+        
+        if isinstance(error, commands.CommandOnCooldown):
+            embed = discord.Embed(
+                title="⏰ Command on Cooldown",
+                description=f"Please wait {error.retry_after:.1f} seconds before using this command again.",
+                color=discord.Color.orange()
+            )
+            await ctx.send(embed=embed, ephemeral=True)
+            
+        elif isinstance(error, commands.MissingPermissions):
+            embed = discord.Embed(
+                title="❌ Missing Permissions",
+                description="You don't have permission to use this command.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed, ephemeral=True)
+            
+        elif isinstance(error, commands.CommandNotFound):
+            # Silently ignore command not found errors
+            pass
+            
+        else:
+            logger.error(f"Unhandled error in command {ctx.command}: {error}")
+            embed = discord.Embed(
+                title="🚫 An Error Occurred",
+                description="An unexpected error occurred. The development team has been notified.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed, ephemeral=True)
+    
+    async def on_app_command_error(self, interaction: discord.Interaction, error):
+        """Handle slash command errors."""
+        self.error_count += 1
+        
+        if interaction.response.is_done():
+            send_method = interaction.followup.send
+        else:
+            send_method = interaction.response.send_message
+        
+        if isinstance(error, discord.app_commands.CommandOnCooldown):
+            embed = discord.Embed(
+                title="⏰ Command on Cooldown",
+                description=f"Please wait {error.retry_after:.1f} seconds before using this command again.",
+                color=discord.Color.orange()
+            )
+            await send_method(embed=embed, ephemeral=True)
+        else:
+            logger.error(f"Unhandled app command error: {error}")
+            embed = discord.Embed(
+                title="🚫 An Error Occurred",
+                description="An unexpected error occurred. Please try again later.",
+                color=discord.Color.red()
+            )
+            await send_method(embed=embed, ephemeral=True)
+    
+    @tasks.loop(hours=1)
+    async def cleanup_task(self):
+        """Clean up old order data and perform maintenance."""
+        try:
+            current_time = time.time()
+            # Remove order data older than 1 hour
+            expired_orders = [
+                user_id for user_id, data in self.order_data.items()
+                if current_time - data.get('timestamp', 0) > 3600
+            ]
+            
+            for user_id in expired_orders:
+                del self.order_data[user_id]
+            
+            if expired_orders:
+                logger.info(f"Cleaned up {len(expired_orders)} expired order sessions")
+                
+            # Clean up rate limit buckets
+            self.rate_limit_buckets = {
+                k: v for k, v in self.rate_limit_buckets.items()
+                if current_time - v < 300  # 5 minutes
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {e}")
+    
+    @tasks.loop(minutes=30)
+    async def metrics_task(self):
+        """Update bot metrics and status."""
+        try:
+            total_users = sum(guild.member_count for guild in self.guilds)
+            await self.change_presence(
+                activity=discord.Activity(
+                    type=discord.ActivityType.watching,
+                    name=f"{len(self.guilds)} servers | {total_users} users"
+                )
+            )
+        except Exception as e:
+            logger.error(f"Error in metrics task: {e}")
+    
+    @cleanup_task.before_loop
+    @metrics_task.before_loop
+    async def wait_until_ready(self):
+        """Wait until bot is ready before starting tasks."""
+        await self.wait_until_ready()
+    
+    async def close(self):
+        """Cleanup when bot shuts down."""
+        logger.info("Bot is shutting down...")
+        
+        # Cancel tasks
+        if hasattr(self, 'cleanup_task'):
+            self.cleanup_task.cancel()
+        if hasattr(self, 'metrics_task'):
+            self.metrics_task.cancel()
+        
+        # Close aiohttp session
+        if self.session:
+            await self.session.close()
+        
+        # Close database connection
+        if self.db_manager:
+            await self.db_manager.close()
+        
+        await super().close()
+        logger.info("Bot shutdown complete")
+    
+    def is_rate_limited(self, user_id: int, command: str, limit: int = 5, window: int = 60) -> bool:
+        """Check if user is rate limited for a command."""
+        current_time = time.time()
+        key = f"{user_id}:{command}"
+        
+        if key not in self.rate_limit_buckets:
+            self.rate_limit_buckets[key] = []
+        
+        # Remove old timestamps
+        self.rate_limit_buckets[key] = [
+            timestamp for timestamp in self.rate_limit_buckets[key]
+            if current_time - timestamp < window
+        ]
+        
+        # Check if limit exceeded
+        if len(self.rate_limit_buckets[key]) >= limit:
+            return True
+        
+        # Add current timestamp
+        self.rate_limit_buckets[key].append(current_time)
+        return False
 
+@asynccontextmanager
+async def get_bot():
+    """Context manager for bot lifecycle."""
+    bot = EnhancedReceiptBot()
     try:
-        # Synchronize the application commands (slash commands) with Discord.
-        # This is crucial for new or updated slash commands to appear for users.
-        # For development, you might sync to a specific guild:
-        # await bot.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
-        # For production, global sync is typical:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash command(s) with Discord.")
-    except discord.errors.Forbidden:
-        print("⚠️ Error syncing slash commands: Bot lacks 'applications.commands' scope or permissions.")
-        print("   Ensure the bot was invited with this scope and has necessary permissions in each server.")
-    except Exception as e:
-        print(f"⚠️ An unexpected error occurred while syncing slash commands: {e}")
-    print("-" * 50)
-    # Note on bot.temp_order_data:
-    # This data currently persists across reconnects as it's an attribute of the bot object.
-    # If it needed to be reset on each on_ready event (e.g., after a full restart vs. a simple reconnect),
-    # one might re-initialize it here: `bot.temp_order_data = {}`.
-    # However, for multi-step forms, persistence during a session (even with reconnects) is generally desired.
+        yield bot
+    finally:
+        await bot.close()
 
-# --- Run the Bot ---
-# This is the final step: start the bot using the loaded BOT_TOKEN.
-# It's good practice to confirm the token was actually loaded before trying to run.
-if BOT_TOKEN:
-    print("🚀 Attempting to connect to Discord with the provided BOT_TOKEN...")
+async def main():
+    """Main entry point."""
+    # Load environment variables
+    load_dotenv()
+    
+    # Check required environment variables
+    required_vars = ['DISCORD_BOT_TOKEN', 'SENDER_EMAIL', 'SENDER_PASSWORD']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        logger.error("Please check your .env file and ensure all required variables are set.")
+        sys.exit(1)
+    
+    token = os.getenv('DISCORD_BOT_TOKEN')
+    if not token:
+        logger.error("DISCORD_BOT_TOKEN not found in environment variables")
+        sys.exit(1)
+    
+    # Start the bot with proper error handling
+    async with get_bot() as bot:
+        try:
+            await bot.start(token)
+        except discord.LoginFailure:
+            logger.error("Invalid bot token provided")
+            sys.exit(1)
+        except discord.HTTPException as e:
+            logger.error(f"HTTP error occurred: {e}")
+            sys.exit(1)
+        except KeyboardInterrupt:
+            logger.info("Bot shutdown requested by user")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            sys.exit(1)
+
+if __name__ == "__main__":
     try:
-        bot.run(BOT_TOKEN)
-    except discord.errors.LoginFailure:
-        print("❌ LOGIN FAILED: Improper token has been passed.")
-        print("   Please ensure the DISCORD_BOT_TOKEN in your .env file or environment is correct.")
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
     except Exception as e:
-        print(f"❌ An unexpected error occurred while trying to run the bot: {e}")
-else:
-    # This case should ideally be caught by the earlier check, but as a fallback:
-    print("❌ CRITICAL: Bot cannot run because DISCORD_BOT_TOKEN is missing.")
-
-print("Bot script execution finished or interrupted.")
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)
