@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import time
-from .email_utils import is_valid_email, EmailService
+from bot.email_utils import is_valid_email, EmailService
 from discord_ui import OrderFormStep1
 
 from dataclasses import dataclass
