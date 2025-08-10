@@ -16,7 +16,7 @@ Currently, we are providing security updates for the following versions of Disco
 We take the security of Discord Receipt Bot seriously. If you believe you've found a security vulnerability, please follow these steps:
 
 1. **Do not disclose the vulnerability publicly** until it has been addressed by the maintainers.
-2. Email the details of the vulnerability to [your-email@example.com](mailto:your-email@example.com).
+2. Email the details of the vulnerability to ninja2482k.
 3. Include as much information as possible, such as:
    - A description of the vulnerability
    - Steps to reproduce the issue
