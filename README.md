@@ -183,6 +183,7 @@ If everything is configured correctly, you should see messages in your console i
 | `/order_form`       | Starts a multi-step order submission process via modals.  |
 | `/run_diagnostics`  | Checks bot status, uptime, server/user count, and latency. |
 | `/ping`             | Responds with Pong! and the bot's current latency.        |
+| `/asci`             | Generates ASCII art from text.                             |
 
 More commands (fun tools, integrations, and automation) are planned for future development.
 

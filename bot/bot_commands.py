@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands # Required for commands.Bot type hint if used, and for bot.tree.command
 import time
+import pyfiglet
+from typing import Callable # For type hinting send_email_func
 from email_utils import is_valid_email, send_email as email_util_send_email
 from discord_ui import OrderFormStep1
 
@@ -96,7 +98,7 @@ def setup_commands(bot: commands.Bot, config: BotConfig):
         modal = OrderFormStep1(
             user_email=email,
             bot_instance=bot,  # 'bot' is from the setup_commands scope
-            send_email_func=email_util_send_email,  # actual send_email function from email_utils
+            send_email_func: Callable = email_util_send_email,  # actual send_email function from email_utils
             cfg_sender_email=config.sender_email,
             cfg_sender_password=config.sender_password,
             cfg_email_template=config.email_template,
@@ -105,5 +107,30 @@ def setup_commands(bot: commands.Bot, config: BotConfig):
         await interaction.response.send_modal(modal)
         print(f"Order_form command initiated by {interaction.user.name} with email {email}")
 
-    print("✅ Bot slash commands have been defined and attached to the bot's tree.")
+    print(f"✅ Bot slash commands have been defined and attached to the bot's tree.")
     # The actual registration with Discord happens when bot.tree.sync() is called, typically in on_ready.
+
+    @bot.tree.command(name="acil", description="Converts text to ASCII art.")
+    async def acil_command(interaction: discord.Interaction, text: str):
+        """
+        Handles the /acil command.
+        Converts the provided text to ASCII art and sends it to the channel.
+        """
+        ascii_art = pyfiglet.figlet_format(text)
+        if len(ascii_art) > 2000: # Discord message character limit
+            await interaction.response.send_message("The ASCII art is too large to display! Please try a shorter text.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"```\n{ascii_art}\n```")
+        print(f"Acil command executed by {interaction.user.name} with text: {text}")
+
+    @bot.tree.command(name="package", description="Lists all packages required to run the bot.")
+    async def package_command(interaction: discord.Interaction):
+        """
+        Handles the /package command.
+        Responds with a list of all packages from requirements.txt.
+        """
+        with open("requirements.txt", "r") as f:
+            packages = f.readlines()
+        package_list = "\n".join([f"- {p.strip()}" for p in packages if p.strip()])
+        await interaction.response.send_message(f"**📦 Required Packages:**\n```\n{package_list}\n```", ephemeral=True)
+        print(f"Package command executed by {interaction.user.name}")

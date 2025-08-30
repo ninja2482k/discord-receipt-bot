@@ -2,3 +2,4 @@ discord.py == 2.5.2
 python-dotenv
 aiosmtplib
 pytest
+pyfiglet

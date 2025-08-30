@@ -71,7 +71,7 @@ START_TIME = time.time()
 # It's an in-memory dictionary. For persistent storage or larger scale applications,
 # consider using a database (e.g., SQLite, PostgreSQL, Redis).
 # Keyed by user_id, it holds data across different steps of a user's interaction with a form.
-bot.temp_order_data: Dict = {}
+bot.temp_order_data: dict = {}
 
 # --- Setup Bot Commands ---
 # Register all slash commands. These are defined in `bot_commands.py`.
@@ -137,8 +137,9 @@ if BOT_TOKEN:
     try:
         bot.run(BOT_TOKEN)
     except discord.errors.LoginFailure:
-        print("❌ LOGIN FAILED: Improper token has been passed.")
-        print("   Please ensure the DISCORD_BOT_TOKEN in your .env file or environment is correct.")
+        print("❌ LOGIN FAILED: Improper token has been passed or bot token is invalid.")
+        print("   Please ensure the DISCORD_BOT_TOKEN in your .env file or environment is correct,")
+        print("   and that it is a valid bot token (not a user token).")
     except Exception as e:
         print(f"❌ An unexpected error occurred while trying to run the bot: {e}")
 else:

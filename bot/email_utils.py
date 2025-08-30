@@ -4,56 +4,20 @@ from aiosmtplib.errors import SMTPAuthenticationError, SMTPRecipientRefused, SMT
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+# --- Constants for SMTP Configuration Defaults ---
+SMTP_CONFIG_DEFAULTS = {
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+}
+
 def is_valid_email(email: str) -> bool:
-    """
-    Validates an email address using a regular expression.
-
-    The regex pattern is structured as follows:
-    - `^[a-zA-Z0-9_.+-]+`: Matches the local part of the email (before '@').
-        - `^`: Asserts the start of the string.
-        - `[a-zA-Z0-9_.+-]+`: Matches one or more occurrences of alphanumeric characters,
-          dots, underscores, plus signs, or hyphens.
-    - `@`: Matches the '@' symbol literally.
-    - `[a-zA-Z0-9-]+`: Matches the domain name part (e.g., 'gmail', 'outlook').
-        - `[a-zA-Z0-9-]+`: Matches one or more occurrences of alphanumeric characters or hyphens.
-    - `\.`: Matches the dot separating the domain from the top-level domain (TLD).
-        - `\.`: Escapes the dot to match it literally.
-    - `[a-zA-Z0-9-.]+$`: Matches the TLD and any subdomains (e.g., 'com', 'co.uk').
-        - `[a-zA-Z0-9-.]+`: Matches one or more occurrences of alphanumeric characters, hyphens, or dots.
-        - `$`: Asserts the end of the string.
-
-    Args:
-        email (str): The email address string to validate.
-
-    Returns:
-        bool: True if the email address is valid according to the regex, False otherwise.
-    """
+    """Validates an email address using a regular expression."""
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(email_regex, email) is not None
 
 
 async def send_email(recipient_email: str, email_data: dict, sender_email_address: str, sender_password_value: str, email_template_data: dict, smtp_config: dict):
-    """
-    Asynchronously sends an email with provided data using aiosmtplib.
-
-    This function constructs an HTML email using a template, populates it with
-    order-specific data, and sends it via an SMTP server. It handles various
-    SMTP-related exceptions.
-
-    Args:
-        recipient_email (str): The email address of the recipient.
-        email_data (dict): A dictionary containing data to populate the email template
-                           (e.g., order number, product name).
-        sender_email_address (str): The email address of the sender.
-        sender_password_value (str): The password for the sender's email account.
-        email_template_data (dict): A dictionary containing the email structure,
-                                   typically with an "html_body" key.
-        smtp_config (dict): A dictionary with SMTP server configuration,
-                            including "smtp_server" and "smtp_port".
-
-    Returns:
-        None. Outputs status to console.
-    """
+    """Asynchronously sends an email with provided data using aiosmtplib."""
     message = MIMEMultipart()
     message['From'] = sender_email_address
     message['To'] = recipient_email
@@ -68,14 +32,14 @@ async def send_email(recipient_email: str, email_data: dict, sender_email_addres
 
     try:
         # Get SMTP server details from smtp_config, with defaults
-        smtp_server_address = smtp_config.get("smtp_server", "smtp.gmail.com")
-        smtp_port_number = smtp_config.get("smtp_port", 587)
+        smtp_server_address = smtp_config.get("smtp_server", SMTP_CONFIG_DEFAULTS["smtp_server"])
+        smtp_port_number = smtp_config.get("smtp_port", SMTP_CONFIG_DEFAULTS["smtp_port"])
 
         # Establish connection with the SMTP server
         async with aiosmtplib.SMTP(hostname=smtp_server_address, port=smtp_port_number) as server:
             await server.login(sender_email_address, sender_password_value) # Authenticate
             # Send the email
-            await server.sendmail(sender_email_address, recipient_email, message.as_string())
+            await server.sendmail(sender_email_address, recipient_email, message.as_string()) # Convert email message to a string format suitable for sending
         print(f"Email sent to {recipient_email}")
 
     except SMTPAuthenticationError as e:

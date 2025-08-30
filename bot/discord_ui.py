@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 
 # --- Helper function for creating TextInput ---
 def create_text_input(
@@ -44,13 +45,13 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
     Upon submission, it passes the collected data and necessary configurations
     to the next step (OrderFormStep2) via a button callback.
     """
-    def __init__(self, user_email: str, bot_instance, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
+    def __init__(self, user_email: str, bot_instance: commands.Bot, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
         """
         Initializes OrderFormStep1.
 
         Args:
             user_email (str): The email address of the user initiating the order.
-            bot_instance: The instance of the Discord bot (commands.Bot), used to access shared data like temp_order_data.
+            bot_instance (commands.Bot): The instance of the Discord bot (commands.Bot), used to access shared data like temp_order_data.
             send_email_func (callable): The asynchronous function used to send emails.
             cfg_sender_email (str): Sender's email address.
             cfg_sender_password (str): Sender's email password.
@@ -61,12 +62,13 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
         self.user_email = user_email
         self.bot_instance = bot_instance
         self.send_email_func = send_email_func
-        self.cfg_sender_email = cfg_sender_email
-        self.cfg_sender_password = cfg_sender_password
-        self.cfg_email_template = cfg_email_template
-        self.cfg_app_config = cfg_app_config
+        self.sender_email = cfg_sender_email
+        self.sender_password = cfg_sender_password
+        self.email_template = cfg_email_template
+        self.app_config = cfg_app_config
 
-        self.form_fields = {}
+        self.form_fields: dict = {}
+        """Stores references to the TextInput components added to the modal, keyed by their logical field names."""
         input_fields = {
             "order_number": ("Order Number", discord.TextStyle.short, True),
             "estimated_arrival_start_date": ("Arrival Start", discord.TextStyle.short, True),
@@ -107,10 +109,10 @@ class OrderFormStep1(discord.ui.Modal, title="Order Details - Step 1"):
                     user_id=user_id,
                     bot_instance=self.bot_instance, # or button_interaction.client
                     send_email_func=self.send_email_func,
-                    cfg_sender_email=self.cfg_sender_email,
-                    cfg_sender_password=self.cfg_sender_password,
-                    cfg_email_template=self.cfg_email_template,
-                    cfg_app_config=self.cfg_app_config
+                    cfg_sender_email=self.sender_email,
+                    cfg_sender_password=self.sender_password,
+                    cfg_email_template=self.email_template,
+                    cfg_app_config=self.app_config
                 )
             )
 
@@ -124,14 +126,14 @@ class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
     Second step in the multi-step order form.
     Collects further product details.
     """
-    def __init__(self, user_email: str, user_id: int, bot_instance, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
+    def __init__(self, user_email: str, user_id: int, bot_instance: commands.Bot, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
         """
         Initializes OrderFormStep2.
 
         Args:
             user_email (str): The email address of the user.
             user_id (int): The Discord user ID.
-            bot_instance: The instance of the Discord bot.
+            bot_instance (commands.Bot): The instance of the Discord bot.
             send_email_func (callable): The asynchronous function used to send emails.
             cfg_sender_email (str): Sender's email address.
             cfg_sender_password (str): Sender's email password.
@@ -143,14 +145,15 @@ class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
         self.user_id = user_id
         self.bot_instance = bot_instance
         self.send_email_func = send_email_func
-        self.cfg_sender_email = cfg_sender_email
-        self.cfg_sender_password = cfg_sender_password
-        self.cfg_email_template = cfg_email_template
-        self.cfg_app_config = cfg_app_config
+        self.sender_email = cfg_sender_email
+        self.sender_password = cfg_sender_password
+        self.email_template = cfg_email_template
+        self.app_config = cfg_app_config
 
         # Retrieve step1_data using bot_instance
         self.step1_data = self.bot_instance.temp_order_data[self.user_id]['step1_data']
-        self.form_fields = {}
+        self.form_fields: dict = {}
+        """Stores references to the TextInput components added to the modal, keyed by their logical field names."""
         input_fields = {
             "style_id": ("Style ID", discord.TextStyle.short, True),
             "product_size": ("Product Size", discord.TextStyle.short, True),
@@ -182,10 +185,10 @@ class OrderFormStep2(discord.ui.Modal, title="Order Details - Step 2"):
                     user_id=self.user_id,
                     bot_instance=self.bot_instance, # or button_interaction.client
                     send_email_func=self.send_email_func,
-                    cfg_sender_email=self.cfg_sender_email,
-                    cfg_sender_password=self.cfg_sender_password,
-                    cfg_email_template=self.cfg_email_template,
-                    cfg_app_config=self.cfg_app_config
+                    cfg_sender_email=self.sender_email,
+                    cfg_sender_password=self.sender_password,
+                    cfg_email_template=self.email_template,
+                    cfg_app_config=self.app_config
                 )
             )
 
@@ -201,14 +204,14 @@ class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
     Upon submission, it consolidates all data, sends a confirmation email,
     and cleans up temporary user data.
     """
-    def __init__(self, user_email: str, user_id: int, bot_instance, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
+    def __init__(self, user_email: str, user_id: int, bot_instance: commands.Bot, send_email_func, cfg_sender_email: str, cfg_sender_password: str, cfg_email_template: dict, cfg_app_config: dict):
         """
         Initializes OrderFormStep3.
 
         Args:
             user_email (str): The email address of the user.
             user_id (int): The Discord user ID.
-            bot_instance: The instance of the Discord bot.
+            bot_instance (commands.Bot): The instance of the Discord bot.
             send_email_func (callable): The asynchronous function used to send emails.
             cfg_sender_email (str): Sender's email address.
             cfg_sender_password (str): Sender's email password.
@@ -220,15 +223,16 @@ class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
         self.user_id = user_id
         self.bot_instance = bot_instance
         self.send_email_func = send_email_func
-        self.cfg_sender_email = cfg_sender_email
-        self.cfg_sender_password = cfg_sender_password
-        self.cfg_email_template = cfg_email_template
-        self.cfg_app_config = cfg_app_config
+        self.sender_email = cfg_sender_email
+        self.sender_password = cfg_sender_password
+        self.email_template = cfg_email_template
+        self.app_config = cfg_app_config
 
         user_specific_data = self.bot_instance.temp_order_data[self.user_id]
         self.step1_data = user_specific_data['step1_data']
         self.step2_data = user_specific_data.get('step2_data', {})
-        self.form_fields = {}
+        self.form_fields: dict = {}
+        """Stores references to the TextInput components added to the modal, keyed by their logical field names."""
         input_fields = {
             "shipping_address": ("Shipping Address", discord.TextStyle.paragraph, True),
             "notes": ("Additional Notes", discord.TextStyle.paragraph, False),
@@ -268,10 +272,10 @@ class OrderFormStep3(discord.ui.Modal, title="Order Details - Step 3"):
         await self.send_email_func(
             recipient_email=self.user_email,
             email_data=merged_data,
-            sender_email_address=self.cfg_sender_email,
-            sender_password_value=self.cfg_sender_password,
-            email_template_data=self.cfg_email_template,
-            smtp_config=self.cfg_app_config
+            sender_email_address=self.sender_email,
+            sender_password_value=self.sender_password,
+            email_template_data=self.email_template,
+            smtp_config=self.app_config
         )
 
         try:
